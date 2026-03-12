@@ -92,4 +92,4 @@ Place `libDemo.so` in `lib/arm64-v8a/` and/or `lib/armeabi-v7a/` inside the APK,
 - `Toast()` is available but commented out by default — uncomment in `JNI_OnLoad` to verify DEX loaded successfully.
 - Font path `/system/fonts/NotoSansCJK-Regular.ttc` may not exist on all devices — adjust as needed.
 - already support `Japanese` characters
-- universal keyboard support any `game` native or unity
+- universal keyboard support any `game` non-unity and unity
