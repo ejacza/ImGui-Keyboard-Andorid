@@ -19,8 +19,6 @@ JNI_OnLoad
                             └── nativeSendKey(int)  → io.AddKeyEvent()
 ```
 
-Every frame, `eglSwapBuffers` (hooked via Dobby) checks `ImGui::GetIO().WantTextInput` and calls `ShowKeyboard()` accordingly — automatically triggered when any `InputText` widget is focused.
-
 ---
 
 ## Key Files
@@ -93,4 +91,4 @@ Place `libDemo.so` in `lib/arm64-v8a/` and/or `lib/armeabi-v7a/` inside the APK,
 
 - `Toast()` is available but commented out by default — uncomment in `JNI_OnLoad` to verify DEX loaded successfully.
 - Font path `/system/fonts/NotoSansCJK-Regular.ttc` may not exist on all devices — adjust as needed.
-- `ScaleAllSizes(2.5f)` is tuned for high-DPI mobile screens — adjust for your target resolution.
+- already support `Japanese` characters
