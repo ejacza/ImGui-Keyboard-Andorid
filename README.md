@@ -28,7 +28,7 @@ JNI_OnLoad
 | `native-lib.cpp` | Entry point, render hook, input hook |
 | `Includes/jni.hpp` | `LoadDex`, `GetClass`, `RegisterNativeMethods`, `ShowKeyboard`, `Toast` |
 | `Includes/dex_data.h` | Compiled `Helper.java` as `unsigned char[]` |
-| `sources keyboard/Helper.java` | Source of the DEX — reference only, not shipped |
+| `sources keyboard/Helper.java` |
 
 ---
 
