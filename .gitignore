@@ -1,0 +1,16 @@
+# Build outputs
+build/
+app/build/
+.cxx/
+
+# Gradle
+.gradle/
+gradle/
+*.gradle.kts.dsl.cache
+
+# IDE
+.idea/
+
+# Local config
+local.properties
+*.iml
