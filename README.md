@@ -69,7 +69,7 @@ Open `AndroidManifest.xml` and find the `<activity>` that has:
 <category android:name="android.intent.category.LAUNCHER" />
 ```
 
-The `android:name` attribute on that `<activity>` is the launcher class — e.g. `com.appsomniacs.da2.DA2Activity`. Open its smali at `smali/com/appsomniacs/da2/DA2Activity.smali` and insert inside `onCreate`
+The `android:name` attribute on that `<activity>` is the launcher class — e.g. `com.unity3d.player.UnityPlayerActivity`. Open its smali at `com.unity3d.player.UnityPlayerActivity.smali` and insert inside `onCreate`
 
 ```smali
 const-string v0, "Demo"
