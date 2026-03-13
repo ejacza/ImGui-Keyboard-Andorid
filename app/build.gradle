@@ -6,8 +6,6 @@ plugins {
 android {
     namespace 'com.example.mynative.cemaks'
     compileSdk 36
-    ndkVersion '29.0.14206865'
-
     defaultConfig {
         applicationId 'com.example.mynative.cemaks'
         minSdk 26
