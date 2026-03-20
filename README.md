@@ -93,3 +93,11 @@ Place `libDemo.so` in `lib/arm64-v8a/` and/or `lib/armeabi-v7a/` inside the APK,
 - Font path `/system/fonts/NotoSansCJK-Regular.ttc` may not exist on all devices — adjust as needed.
 - already support `Japanese` characters
 - universal keyboard support any `game` non-unity and unity
+
+---
+
+## Credits
+
+- [Dear ImGui](https://github.com/ocornut/imgui) — Immediate mode GUI for C++
+- [Dobby](https://github.com/jmpews/Dobby) — Lightweight, multi-platform hook framework
+- [KittyMemory](https://github.com/MJx0/KittyMemory) — Android memory patching library
