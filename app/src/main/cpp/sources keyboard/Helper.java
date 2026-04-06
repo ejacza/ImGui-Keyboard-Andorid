@@ -2,6 +2,7 @@ package com.mxp;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
@@ -12,6 +13,8 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
+import java.io.File;
+
 public class Helper {
 
     public static Activity activity;
@@ -19,6 +22,7 @@ public class Helper {
 
     public static void setActivity(Activity a) {
         activity = a;
+        keyboardView = null;
     }
 
     public static void showToast(String msg) {
@@ -26,6 +30,26 @@ public class Helper {
             return;
         new Handler(Looper.getMainLooper()).post(
             () -> Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show());
+    }
+
+    public static String getDocumentsPath() {
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        return dir.getAbsolutePath();
+    }
+
+    public static String getDownloadPath() {
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        return dir.getAbsolutePath();
+    }
+
+    public static String getPicturePath() {
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        return dir.getAbsolutePath();
+    }
+
+    public static String getDCIMPath() {
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+        return dir.getAbsolutePath();
     }
 
     public static void showKeyboard(boolean show) {
@@ -36,15 +60,21 @@ public class Helper {
             InputMethodManager imm = (InputMethodManager)
                 activity.getSystemService(Context.INPUT_METHOD_SERVICE);
 
+            if (imm == null)
+                return;
+
             if (show) {
                 if (keyboardView == null) {
                     keyboardView = new KeyboardView(activity);
-                    android.view.ViewGroup.LayoutParams lp =
-                        new android.view.ViewGroup.LayoutParams(1, 1);
-                    activity.addContentView(keyboardView, lp);
+                    activity.addContentView(keyboardView,
+                        new android.view.ViewGroup.LayoutParams(1, 1));
                 }
-                keyboardView.requestFocus();
-                imm.showSoftInput(keyboardView, InputMethodManager.SHOW_FORCED);
+
+                final KeyboardView kv = keyboardView;
+                kv.post(() -> {
+                    kv.requestFocus();
+                    imm.showSoftInput(kv, InputMethodManager.SHOW_FORCED);
+                });
             } else {
                 if (keyboardView != null) {
                     imm.hideSoftInputFromWindow(keyboardView.getWindowToken(), 0);
@@ -110,24 +140,17 @@ public class Helper {
                 public boolean sendKeyEvent(KeyEvent event) {
                     if (event.getAction() == KeyEvent.ACTION_DOWN) {
                         int code = event.getKeyCode();
-                        if (code == KeyEvent.KEYCODE_DEL) {
-                            nativeSendKey(KeyEvent.KEYCODE_DEL);
+                        if (code == KeyEvent.KEYCODE_DEL ||
+                            code == KeyEvent.KEYCODE_ENTER ||
+                            code == KeyEvent.KEYCODE_DPAD_LEFT ||
+                            code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                            nativeSendKey(code);
                             return true;
-                        } else if (code == KeyEvent.KEYCODE_ENTER) {
-                            nativeSendKey(KeyEvent.KEYCODE_ENTER);
+                        }
+                        int uni = event.getUnicodeChar(event.getMetaState());
+                        if (uni != 0) {
+                            nativeSendChar(uni);
                             return true;
-                        } else if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
-                            nativeSendKey(KeyEvent.KEYCODE_DPAD_LEFT);
-                            return true;
-                        } else if (code == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                            nativeSendKey(KeyEvent.KEYCODE_DPAD_RIGHT);
-                            return true;
-                        } else {
-                            int uni = event.getUnicodeChar(event.getMetaState());
-                            if (uni != 0) {
-                                nativeSendChar(uni);
-                                return true;
-                            }
                         }
                     }
                     return super.sendKeyEvent(event);
