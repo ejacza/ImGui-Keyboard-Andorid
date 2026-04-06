@@ -1,4 +1,7 @@
+#pragma once
+
 #include <jni.h>
+#include <imgui.h>
 #include <dex_data.h>
 
 inline JavaVM *jvm = nullptr;
@@ -13,7 +16,9 @@ static JNIEnv *GetEnv(bool *attached)
     jint result = jvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 
     if (result == JNI_EDETACHED) {
-        jvm->AttachCurrentThread(&env, nullptr);
+        jint r = jvm->AttachCurrentThread(&env, nullptr);
+        if (r != JNI_OK)
+            return nullptr;
         *attached = true;
     }
 
@@ -48,32 +53,37 @@ static jclass GetClass(JNIEnv *env, const char *className)
 static jobject GetActivity(JNIEnv *env)
 {
     jclass activityThread = env->FindClass("android/app/ActivityThread");
+    if (!activityThread)
+        return nullptr;
 
     jmethodID currentActivityThread = env->GetStaticMethodID(
         activityThread, "currentActivityThread", "()Landroid/app/ActivityThread;");
+    if (!currentActivityThread)
+        return nullptr;
 
     jobject thread = env->CallStaticObjectMethod(activityThread, currentActivityThread);
+    if (!thread)
+        return nullptr;
 
     jfieldID activitiesField =
         env->GetFieldID(activityThread, "mActivities", "Landroid/util/ArrayMap;");
+    if (!activitiesField)
+        return nullptr;
 
     jobject activities = env->GetObjectField(thread, activitiesField);
+    if (!activities)
+        return nullptr;
 
     jclass mapClass = env->FindClass("android/util/ArrayMap");
-
     jmethodID values = env->GetMethodID(mapClass, "values", "()Ljava/util/Collection;");
-
     jobject collection = env->CallObjectMethod(activities, values);
 
     jclass collectionClass = env->FindClass("java/util/Collection");
-
     jmethodID iterator =
         env->GetMethodID(collectionClass, "iterator", "()Ljava/util/Iterator;");
-
     jobject it = env->CallObjectMethod(collection, iterator);
 
     jclass iteratorClass = env->FindClass("java/util/Iterator");
-
     jmethodID hasNext = env->GetMethodID(iteratorClass, "hasNext", "()Z");
     jmethodID next = env->GetMethodID(iteratorClass, "next", "()Ljava/lang/Object;");
 
@@ -81,7 +91,6 @@ static jobject GetActivity(JNIEnv *env)
 
     if (env->CallBooleanMethod(it, hasNext)) {
         jobject record = env->CallObjectMethod(it, next);
-
         jclass recordClass = env->GetObjectClass(record);
 
         jfieldID activityField =
@@ -170,7 +179,7 @@ static void RegisterNativeMethods(JNIEnv *env)
         { "nativeSendKey",  "(I)V", (void *)nativeSendKey_impl  },
     };
 
-    env->RegisterNatives(helper, methods, 2);
+    jint r = env->RegisterNatives(helper, methods, 2);
     env->DeleteLocalRef(helper);
 
     if (env->ExceptionCheck())
@@ -188,30 +197,43 @@ static void LoadDex(unsigned char *dex, int size)
     env->SetByteArrayRegion(dexArray, 0, size, (jbyte *)dex);
 
     jclass bufferClass = env->FindClass("java/nio/ByteBuffer");
-
     jmethodID wrap =
         env->GetStaticMethodID(bufferClass, "wrap", "([B)Ljava/nio/ByteBuffer;");
-
     jobject buffer = env->CallStaticObjectMethod(bufferClass, wrap, dexArray);
 
+    if (!buffer) {
+        env->DeleteLocalRef(dexArray);
+        if (attached) jvm->DetachCurrentThread();
+        return;
+    }
+
     jclass loaderClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
+    if (!loaderClass) {
+        env->DeleteLocalRef(buffer);
+        env->DeleteLocalRef(dexArray);
+        if (attached) jvm->DetachCurrentThread();
+        return;
+    }
 
     jclass contextClass = env->FindClass("android/app/ActivityThread");
-
     jmethodID currentApplication = env->GetStaticMethodID(
         contextClass, "currentApplication", "()Landroid/app/Application;");
-
     jobject app = env->CallStaticObjectMethod(contextClass, currentApplication);
 
     jclass ctx = env->FindClass("android/content/Context");
-
     jmethodID getClassLoader =
         env->GetMethodID(ctx, "getClassLoader", "()Ljava/lang/ClassLoader;");
-
     jobject parent = env->CallObjectMethod(app, getClassLoader);
 
     jmethodID ctor = env->GetMethodID(loaderClass, "<init>",
                                       "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
+    if (!ctor) {
+        env->DeleteLocalRef(parent);
+        env->DeleteLocalRef(buffer);
+        env->DeleteLocalRef(dexArray);
+        if (attached) jvm->DetachCurrentThread();
+        return;
+    }
 
     jobject dexLoader = env->NewObject(loaderClass, ctor, buffer, parent);
 
@@ -224,7 +246,6 @@ static void LoadDex(unsigned char *dex, int size)
                                            "(Ljava/lang/String;)Ljava/lang/Class;");
 
     jstring target = env->NewStringUTF("com.mxp.Helper");
-
     jobject clazz = env->CallObjectMethod(gDexLoader, loadClass, target);
 
     if (clazz) {
@@ -309,4 +330,184 @@ static void ShowKeyboard(bool show)
 
     if (attached)
         jvm->DetachCurrentThread();
+}
+
+static std::string GetDocumentsPath()
+{
+    if (!Loader)
+        return "";
+
+    bool attached;
+    JNIEnv *env = GetEnv(&attached);
+    if (!env)
+        return "";
+
+    jclass helper = GetClass(env, "com.mxp.Helper");
+    if (!helper) {
+        if (attached)
+            jvm->DetachCurrentThread();
+        return "";
+    }
+
+    jmethodID getDocumentsPath =
+        env->GetStaticMethodID(helper, "getDocumentsPath", "()Ljava/lang/String;");
+
+    std::string result;
+
+    if (getDocumentsPath) {
+        jstring jpath = (jstring)env->CallStaticObjectMethod(helper, getDocumentsPath);
+        if (jpath) {
+            const char *cpath = env->GetStringUTFChars(jpath, nullptr);
+            if (cpath) {
+                result = cpath;
+                env->ReleaseStringUTFChars(jpath, cpath);
+            }
+            env->DeleteLocalRef(jpath);
+        }
+    }
+
+    env->DeleteLocalRef(helper);
+
+    if (env->ExceptionCheck())
+        env->ExceptionClear();
+
+    if (attached)
+        jvm->DetachCurrentThread();
+
+    return result;
+}
+
+static std::string GetDownloadPath()
+{
+    if (!Loader)
+        return "";
+
+    bool attached;
+    JNIEnv *env = GetEnv(&attached);
+    if (!env)
+        return "";
+
+    jclass helper = GetClass(env, "com.mxp.Helper");
+    if (!helper) {
+        if (attached)
+            jvm->DetachCurrentThread();
+        return "";
+    }
+
+    jmethodID getDownloadPath =
+        env->GetStaticMethodID(helper, "getDownloadPath", "()Ljava/lang/String;");
+
+    std::string result;
+
+    if (getDownloadPath) {
+        jstring jpath = (jstring)env->CallStaticObjectMethod(helper, getDownloadPath);
+        if (jpath) {
+            const char *cpath = env->GetStringUTFChars(jpath, nullptr);
+            if (cpath) {
+                result = cpath;
+                env->ReleaseStringUTFChars(jpath, cpath);
+            }
+            env->DeleteLocalRef(jpath);
+        }
+    }
+
+    env->DeleteLocalRef(helper);
+
+    if (env->ExceptionCheck())
+        env->ExceptionClear();
+
+    if (attached)
+        jvm->DetachCurrentThread();
+
+    return result;
+}
+
+static std::string GetPicturePath()
+{
+    if (!Loader)
+        return "";
+
+    bool attached;
+    JNIEnv *env = GetEnv(&attached);
+    if (!env)
+        return "";
+
+    jclass helper = GetClass(env, "com.mxp.Helper");
+    if (!helper) {
+        if (attached)
+            jvm->DetachCurrentThread();
+        return "";
+    }
+
+    jmethodID getPicturePath =
+        env->GetStaticMethodID(helper, "getPicturePath", "()Ljava/lang/String;");
+
+    std::string result;
+
+    if (getPicturePath) {
+        jstring jpath = (jstring)env->CallStaticObjectMethod(helper, getPicturePath);
+        if (jpath) {
+            const char *cpath = env->GetStringUTFChars(jpath, nullptr);
+            if (cpath) {
+                result = cpath;
+                env->ReleaseStringUTFChars(jpath, cpath);
+            }
+            env->DeleteLocalRef(jpath);
+        }
+    }
+
+    env->DeleteLocalRef(helper);
+
+    if (env->ExceptionCheck())
+        env->ExceptionClear();
+
+    if (attached)
+        jvm->DetachCurrentThread();
+
+    return result;
+}
+
+static std::string GetDCIMPath()
+{
+    if (!Loader)
+        return "";
+
+    bool attached;
+    JNIEnv *env = GetEnv(&attached);
+    if (!env)
+        return "";
+
+    jclass helper = GetClass(env, "com.mxp.Helper");
+    if (!helper) {
+        if (attached)
+            jvm->DetachCurrentThread();
+        return "";
+    }
+
+    jmethodID getDCIMPath =
+        env->GetStaticMethodID(helper, "getDCIMPath", "()Ljava/lang/String;");
+
+    std::string result;
+
+    if (getDCIMPath) {
+        jstring jpath = (jstring)env->CallStaticObjectMethod(helper, getDCIMPath);
+        if (jpath) {
+            const char *cpath = env->GetStringUTFChars(jpath, nullptr);
+            if (cpath) {
+                result = cpath;
+                env->ReleaseStringUTFChars(jpath, cpath);
+            }
+            env->DeleteLocalRef(jpath);
+        }
+    }
+
+    env->DeleteLocalRef(helper);
+
+    if (env->ExceptionCheck())
+        env->ExceptionClear();
+
+    if (attached)
+        jvm->DetachCurrentThread();
+
+    return result;
 }
