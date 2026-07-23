@@ -2,6 +2,18 @@
 
 static char inputText[256] = "";
 static char inputMulti[1024] = "";
+static bool jetpack_hack = false;
+
+void (*orig_Fly)(void* thiz, float targetHeight, float duration, float flightSpeed, float heightAdjustTime, int mode);
+void my_Fly(void* thiz, float targetHeight, float duration, float flightSpeed, float heightAdjustTime, int mode) {
+    if (jetpack_hack) {
+        targetHeight = 25.0f;        // Terbang lebih tinggi
+        duration = 99999.0f;         // Terbang selamanya
+        flightSpeed = 70.0f;         // Kecepatan terbang lebih cepat
+        mode = 1;                    // Paksa mode Jetpack (FlightMode.Jetpack = 1)
+    }
+    orig_Fly(thiz, targetHeight, duration, flightSpeed, heightAdjustTime, mode);
+}
 
 void DrawMenu() {
 
@@ -10,6 +22,8 @@ void DrawMenu() {
 
         if (ImGui::BeginTabItem("Main")) {
 
+            ImGui::Checkbox("Infinite Jetpack", &jetpack_hack);
+            ImGui::Separator();
             ImGui::InputText("Input", inputText, sizeof(inputText));
             ImGui::InputTextMultiline("Multi", inputMulti, sizeof(inputMulti), ImVec2(-1, 100));
 
@@ -93,6 +107,22 @@ void *MainThread(void *) {
             load = true;
             il2cpp_api_init(handle);
             il2cpp_dump();
+
+            // Setup Hook
+            auto charMotorClass = UnityResolve::Get("Assembly-CSharp.dll")
+                ->Get("CharacterMotor", "SYBO.RunnerCore.Character");
+            if (charMotorClass) {
+                auto flyMethod = charMotorClass->Get<UnityResolve::Method>("Fly");
+                if (flyMethod && flyMethod->function) {
+                    DobbyHook(flyMethod->function, (void*)my_Fly, (void**)&orig_Fly);
+                    LOGI("Fly Hooked Successfully!");
+                } else {
+                    LOGW("Failed to find Fly method!");
+                }
+            } else {
+                LOGW("Failed to find CharacterMotor class!");
+            }
+
             break;
         } else {
             sleep(1);
