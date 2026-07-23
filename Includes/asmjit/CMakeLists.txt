@@ -1,9 +1,9 @@
 file(GLOB ASMJIT_SRC
-    asmjit/core/*.cpp
-    asmjit/support/*.cpp
-    asmjit/arm/*.cpp
-    asmjit/x86/*.cpp
-    asmjit/ujit/*.cpp
+    core/*.cpp
+    support/*.cpp
+    arm/*.cpp
+    x86/*.cpp
+    ujit/*.cpp
 )
 add_library(asmjit STATIC ${ASMJIT_SRC})
 target_include_directories(asmjit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
