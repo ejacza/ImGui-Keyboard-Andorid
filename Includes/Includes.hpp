@@ -132,6 +132,7 @@
 #include <jni.hpp>
 #include <il2cpp_dump.h>
 #include <UnityResolve.hpp>
+#include <log.h>
 
 static inline int DobbyHookCompat(void *address, void *replace_func, void **origin_func) {
     return DobbyHook(address, (dobby_dummy_func_t)replace_func, (dobby_dummy_func_t *)origin_func);
