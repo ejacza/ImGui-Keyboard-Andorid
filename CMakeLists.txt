@@ -65,11 +65,8 @@ add_library(gumpp STATIC
     ${INCLUDES_DIR}/Frida/gumpp/backtracer.cpp
     ${INCLUDES_DIR}/Frida/gumpp/interceptor.cpp
     ${INCLUDES_DIR}/Frida/gumpp/invocationlistener.cpp
-    ${INCLUDES_DIR}/Frida/gumpp/profiler.cpp
     ${INCLUDES_DIR}/Frida/gumpp/returnaddress.cpp
     ${INCLUDES_DIR}/Frida/gumpp/runtime.cpp
-    ${INCLUDES_DIR}/Frida/gumpp/sampler.cpp
-    ${INCLUDES_DIR}/Frida/gumpp/sanitychecker.cpp
     ${INCLUDES_DIR}/Frida/gumpp/symbolutil.cpp
 )
 
