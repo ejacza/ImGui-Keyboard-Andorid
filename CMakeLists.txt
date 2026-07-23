@@ -27,6 +27,8 @@ include_directories(
     ${INCLUDES_DIR}/KittyMemory
     ${INCLUDES_DIR}/xdl/include
     ${INCLUDES_DIR}/il2cpp
+    ${INCLUDES_DIR}/Frida/${ANDROID_ABI}
+    ${INCLUDES_DIR}/Frida/gumpp
 )
 
 add_library(imgui STATIC
@@ -52,6 +54,25 @@ add_library(kitty STATIC
     ${INCLUDES_DIR}/KittyMemory/MemoryPatch.cpp
 )
 
+# Frida-Gum Devkit Import
+add_library(frida-gum STATIC IMPORTED)
+set_target_properties(frida-gum PROPERTIES
+    IMPORTED_LOCATION "${INCLUDES_DIR}/Frida/${ANDROID_ABI}/libfrida-gum.a"
+)
+
+# Gumpp C++ Bindings Target
+add_library(gumpp STATIC
+    ${INCLUDES_DIR}/Frida/gumpp/backtracer.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/interceptor.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/invocationlistener.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/profiler.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/returnaddress.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/runtime.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/sampler.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/sanitychecker.cpp
+    ${INCLUDES_DIR}/Frida/gumpp/symbolutil.cpp
+)
+
 add_library(Demo SHARED
     native-lib.cpp
     ${INCLUDES_DIR}/il2cpp/il2cpp_dump.cpp
@@ -67,4 +88,6 @@ target_link_libraries(Demo
     dobby
     kitty
     xdl
+    gumpp
+    frida-gum
 )
