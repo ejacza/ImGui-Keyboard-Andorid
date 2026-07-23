@@ -133,6 +133,7 @@
 #include <il2cpp_dump.h>
 #include <UnityResolve.hpp>
 #include <log.h>
+#include <asmjit/asmjit.h>
 #include <gumpp.hpp>
 
 static inline int DobbyHookCompat(void *address, void *replace_func, void **origin_func) {

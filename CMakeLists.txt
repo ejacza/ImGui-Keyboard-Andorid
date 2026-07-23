@@ -46,6 +46,7 @@ set(BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 set(BUILD_TEST OFF CACHE BOOL "" FORCE)
 add_subdirectory(${DOBBY_DIR})
 add_subdirectory(${INCLUDES_DIR}/xdl)
+add_subdirectory(${INCLUDES_DIR}/asmjit Includes/asmjit)
 
 add_library(kitty STATIC
     ${INCLUDES_DIR}/KittyMemory/KittyMemory.cpp
@@ -87,4 +88,5 @@ target_link_libraries(Demo
     xdl
     gumpp
     frida-gum
+    asmjit
 )
