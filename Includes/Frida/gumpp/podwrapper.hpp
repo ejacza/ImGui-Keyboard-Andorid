@@ -1,7 +1,7 @@
 #ifndef __GUMPP_POD_WRAPPER_HPP__
 #define __GUMPP_POD_WRAPPER_HPP__
 
-#include <glib.h>
+#include <frida-gum.h>
 
 namespace Gum
 {

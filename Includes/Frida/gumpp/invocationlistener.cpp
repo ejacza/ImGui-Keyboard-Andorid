@@ -2,7 +2,7 @@
 
 #include "invocationcontext.hpp"
 
-#include <gum/gum.h>
+#include <frida-gum.h>
 
 namespace Gum
 {
