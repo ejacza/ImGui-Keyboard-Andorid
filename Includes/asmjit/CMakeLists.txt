@@ -1,5 +1,10 @@
-cmake_minimum_required(VERSION 3.22.1)
-file(GLOB_RECURSE ASMJIT_SRC "asmjit/*.cpp")
+file(GLOB ASMJIT_SRC
+    asmjit/core/*.cpp
+    asmjit/support/*.cpp
+    asmjit/arm/*.cpp
+    asmjit/x86/*.cpp
+    asmjit/ujit/*.cpp
+)
 add_library(asmjit STATIC ${ASMJIT_SRC})
 target_include_directories(asmjit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_compile_definitions(asmjit PUBLIC ASMJIT_STATIC ASMJIT_NO_FOREIGN=1)
