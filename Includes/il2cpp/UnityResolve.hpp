@@ -27,27 +27,31 @@ public:
 	struct Method;
 	class UnityType;
 
+	static Assembly* NullAssembly();
+	static Class* NullClass();
+
 	struct Assembly final {
 		void* address;
 		std::string name;
 		std::string file;
 
 		[[nodiscard]] auto Get(const std::string& strClass, const std::string& strNamespace = "*", const std::string& strParent = "*") -> Class* {
+			if (!address) return UnityResolve::NullClass();
 			auto image = il2cpp_assembly_get_image(address);
 			auto count = il2cpp_image_get_class_count(image);
 			for (decltype(count) i = 0; i < count; i++) {
-				auto klass = il2cpp_image_get_class(image, i);
+			auto klass = il2cpp_image_get_class(image, i);
 				if (!klass) continue;
-				auto cname = il2cpp_class_get_name(klass);
-				auto ns = il2cpp_class_get_namespace(klass);
-				auto parent = il2cpp_class_get_parent(klass);
-				auto pname = parent ? il2cpp_class_get_name(parent) : "";
+			auto cname = il2cpp_class_get_name(klass);
+			auto ns = il2cpp_class_get_namespace(klass);
+			auto parent = il2cpp_class_get_parent(klass);
+			auto pname = parent ? il2cpp_class_get_name(parent) : "";
 				if (strClass == cname && (strNamespace == "*" || ns == strNamespace) && (strParent == "*" || pname == strParent)) {
-					auto result = new Class{ .address = klass, .name = cname, .parent = pname, .namespaze = ns };
+				auto result = new Class{ .address = klass, .name = cname, .parent = pname, .namespaze = ns };
 					return result;
 				}
 			}
-			return nullptr;
+			return UnityResolve::NullClass();
 		}
 	};
 
@@ -70,13 +74,14 @@ public:
 
 		template <typename RType>
 		auto Get(const std::string& name, const std::vector<std::string>& args = {}) -> RType* {
+			if (!address) return nullptr;
 			if constexpr (std::is_same_v<RType, Field>) {
 				void* iter = nullptr;
 				while (auto field = il2cpp_class_get_fields(address, &iter)) {
 					if (il2cpp_field_get_name(field) == name) {
 						auto result = new Field{ .address = field, .name = name };
 						result->type = new Type{ .address = il2cpp_field_get_type(field) };
-						result->type->name = il2cpp_type_get_name(result->type->address);
+						if (auto tn = il2cpp_type_get_name(result->type->address)) { result->type->name = tn; il2cpp_free(tn); }
 						result->type->size = -1;
 						result->klass = this;
 						result->offset = il2cpp_field_get_offset(field);
@@ -104,16 +109,14 @@ public:
 							size_t index = 0;
 							for (size_t i = 0; i < args.size(); i++) {
 								auto pType = il2cpp_method_get_param(method, static_cast<uint32_t>(i));
-								auto typeName = pType ? il2cpp_type_get_name(pType) : "";
-								if (args[i] == "*" || args[i].empty() || args[i] == typeName) index++;
+								char* typeName = pType ? il2cpp_type_get_name(pType) : nullptr;
+								bool match = args[i] == "*" || args[i].empty() || (typeName && args[i] == typeName);
+								if (typeName) il2cpp_free(typeName);
+								if (match) index++;
 							}
 							if (index == args.size()) return static_cast<RType*>(make_method(method));
 						}
 					}
-				}
-				void* iter2 = nullptr;
-				while (auto method = il2cpp_class_get_methods(address, &iter2)) {
-					if (il2cpp_method_get_name(method) == name) return static_cast<RType*>(make_method(method));
 				}
 				return nullptr;
 			}
@@ -150,7 +153,13 @@ public:
 		template <typename T>
 		auto FindObjectsByType() -> std::vector<T> {
 			static Method* pMethod;
-			if (!pMethod) pMethod = UnityResolve::Get("UnityEngine.CoreModule.dll")->Get("Object")->Get<Method>("FindObjectsOfType", { "System.Type" });
+			if (!pMethod) {
+				auto a = UnityResolve::Get("UnityEngine.CoreModule.dll");
+				if (!a || !a->address) return std::vector<T>(0);
+				auto c = a->Get("Object");
+				if (!c || !c->address) return std::vector<T>(0);
+				pMethod = c->Get<Method>("FindObjectsOfType", { "System.Type" });
+			}
 			if (!objType) objType = GetType();
 			if (pMethod && objType)
 				if (auto array = pMethod->Invoke<UnityType::Array<T>*>(objType))
@@ -167,7 +176,7 @@ public:
 		static auto make_method(void* method) -> Method* {
 			auto result = new Method{ .address = method, .name = il2cpp_method_get_name(method) };
 			result->return_type = new Type{ .address = il2cpp_method_get_return_type(method) };
-			result->return_type->name = il2cpp_type_get_name(result->return_type->address);
+			if (auto tn = il2cpp_type_get_name(result->return_type->address)) { result->return_type->name = tn; il2cpp_free(tn); }
 			result->return_type->size = -1;
 			uint32_t fFlags = 0;
 			result->flags = il2cpp_method_get_flags(method, &fFlags);
@@ -177,7 +186,7 @@ public:
 			for (decltype(argCount) index = 0; index < argCount; index++) {
 				uint32_t uindex = static_cast<uint32_t>(index);
 				auto arg = new Method::Arg{ .name = il2cpp_method_get_param_name(method, uindex), .pType = new Type{ .address = il2cpp_method_get_param(method, uindex) } };
-				arg->pType->name = il2cpp_type_get_name(arg->pType->address);
+				if (auto tn = il2cpp_type_get_name(arg->pType->address)) { arg->pType->name = tn; il2cpp_free(tn); }
 				arg->pType->size = -1;
 				result->args.push_back(arg);
 			}
@@ -288,11 +297,12 @@ public:
 
 	static auto Get(const std::string& strAssembly) -> Assembly* {
 		// Check cache first
-		for (auto pAssembly : assembly) if (pAssembly->name == strAssembly) return pAssembly;
+		for (auto pAssembly : assembly) if (pAssembly && pAssembly->name == strAssembly) return pAssembly;
 		// Search via API
 		auto domain = il2cpp_domain_get();
 		size_t size = 0;
 		auto assemblies = il2cpp_domain_get_assemblies(domain, &size);
+		if (!assemblies) return UnityResolve::NullAssembly();
 		for (decltype(size) i = 0; i < size; i++) {
 			auto ptr = assemblies[i];
 			if (!ptr) continue;
@@ -301,10 +311,12 @@ public:
 			if (strAssembly == name) {
 				auto result = new Assembly{ .address = ptr, .name = name, .file = il2cpp_image_get_filename(image) };
 				assembly.push_back(result);
+				il2cpp_free(assemblies);
 				return result;
 			}
 		}
-		return nullptr;
+		il2cpp_free(assemblies);
+		return UnityResolve::NullAssembly();
 	}
 
 public:
@@ -2451,6 +2463,24 @@ public:
 			return Return();
 		}
 	};
+
+	static Assembly* NullAssembly() {
+		static Assembly* null_assembly = nullptr;
+		if (!null_assembly) {
+			null_assembly = new Assembly{};
+			null_assembly->address = nullptr;
+		}
+		return null_assembly;
+	}
+
+	static Class* NullClass() {
+		static Class* null_class = nullptr;
+		if (!null_class) {
+			null_class = new Class{};
+			null_class->address = nullptr;
+		}
+		return null_class;
+	}
 
 };
 #endif
