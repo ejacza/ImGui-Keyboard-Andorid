@@ -1,5 +1,5 @@
-// LZMA (.gnu_debugdata) decompressor for DobbySymbolResolver.
-// Ported from xDL xdl_lzma.c -> uses dlopen/dlsym instead of xdl_open/xdl_sym.
+// LZMA (.gnu_debugdata) decompressor, ported from xDL xdl_lzma.c.
+// Resolves liblzma.so via dlopen/dlsym (no xDL dependency).
 
 #include "dobby_lzma.h"
 
@@ -10,14 +10,12 @@
 
 #include <android/api-level.h>
 
-// liblzma.so pathname
 #ifndef __LP64__
 #define LZMA_PATHNAME "/system/lib/liblzma.so"
 #else
 #define LZMA_PATHNAME "/system/lib64/liblzma.so"
 #endif
 
-// liblzma symbol names (7-Zip / XZ-embedded API, exported by Android liblzma.so)
 #define LZMA_SYM_CRCGEN     "CrcGenerateTable"
 #define LZMA_SYM_CRC64GEN   "Crc64GenerateTable"
 #define LZMA_SYM_CONSTRUCT  "XzUnpacker_Construct"
@@ -25,14 +23,13 @@
 #define LZMA_SYM_FREE       "XzUnpacker_Free"
 #define LZMA_SYM_CODE       "XzUnpacker_Code"
 
-// LZMA data type definitions (subset of 7-Zip types used by XzUnpacker API)
 #define SZ_OK 0
 
 typedef struct ISzAlloc ISzAlloc;
 typedef const ISzAlloc *ISzAllocPtr;
 struct ISzAlloc {
   void *(*Alloc)(ISzAllocPtr p, size_t size);
-  void (*Free)(ISzAllocPtr p, void *address);  // address can be 0
+  void (*Free)(ISzAllocPtr p, void *address);
 };
 typedef enum {
   CODER_STATUS_NOT_SPECIFIED,
@@ -45,7 +42,6 @@ typedef enum {
   CODER_FINISH_END
 } ECoderFinishMode;
 
-// LZMA function pointer types
 typedef void (*lzma_crcgen_t)(void);
 typedef void (*lzma_crc64gen_t)(void);
 typedef void (*lzma_construct_t)(void *, ISzAllocPtr);
@@ -56,19 +52,11 @@ typedef int (*lzma_code_t)(void *, uint8_t *, size_t *, const uint8_t *, size_t 
 typedef int (*lzma_code_q_t)(void *, uint8_t *, size_t *, const uint8_t *, size_t *, int,
                              ECoderFinishMode, ECoderStatus *);
 
-// resolved function pointers
 static lzma_construct_t lzma_construct = NULL;
 static lzma_isfinished_t lzma_isfinished = NULL;
 static lzma_free_t lzma_free = NULL;
 static void *lzma_code = NULL;
 
-static int get_api_level(void) {
-  // android_get_device_api_level() may not always be visible; fall back to a syscall-based read.
-  int level = android_get_device_api_level();
-  return level;
-}
-
-// one-time init: resolve liblzma.so symbols via plain dlopen/dlsym
 static void dobby_lzma_init(void) {
   void *lzma = dlopen(LZMA_PATHNAME, RTLD_NOW);
   if (NULL == lzma) return;
@@ -86,7 +74,6 @@ static void dobby_lzma_init(void) {
   dlclose(lzma);
 }
 
-// LZMA internal alloc / free (C malloc)
 static void *dobby_lzma_internal_alloc(ISzAllocPtr p, size_t size) {
   (void)p;
   return malloc(size);
@@ -102,7 +89,7 @@ int dobby_lzma_decompress(uint8_t *src, size_t src_size, uint8_t **dst, size_t *
   size_t src_remaining;
   size_t dst_remaining;
   ISzAlloc alloc = {dobby_lzma_internal_alloc, dobby_lzma_internal_free};
-  long long state[4096 / sizeof(long long)];  // must be enough, 8-byte aligned
+  long long state[4096 / sizeof(long long)];  // 8-byte aligned, large enough for XzUnpacker state
   ECoderStatus status;
 
   static bool inited = false;
@@ -127,8 +114,7 @@ int dobby_lzma_decompress(uint8_t *src, size_t src_size, uint8_t **dst, size_t *
     dst_remaining = *dst_size - dst_offset;
 
     int result;
-    int api_level = get_api_level();
-    if (api_level >= __ANDROID_API_Q__) {
+    if (android_get_device_api_level() >= __ANDROID_API_Q__) {
       lzma_code_q_t lzma_code_q = (lzma_code_q_t)lzma_code;
       result = lzma_code_q(&state, *dst + dst_offset, &dst_remaining, src + src_offset, &src_remaining, 1,
                            CODER_FINISH_ANY, &status);
