@@ -112,7 +112,7 @@ int dobby_lzma_decompress(uint8_t *src, size_t src_size, uint8_t **dst, size_t *
   }
   if (NULL == lzma_code) return -1;
 
-  dobby_lzma_construct(&state, &alloc);  // (lzma_construct_t)(&state, &alloc)
+  lzma_construct(&state, &alloc);
 
   *dst_size = 2 * src_size;
   *dst = NULL;
