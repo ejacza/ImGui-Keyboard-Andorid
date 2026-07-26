@@ -22,6 +22,7 @@ endif()
 if(SYSTEM.Linux OR SYSTEM.Android)
   set(SOURCE_FILE_LIST ${SOURCE_FILE_LIST}
     ${CMAKE_CURRENT_SOURCE_DIR}/elf/dobby_symbol_resolver.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/elf/dobby_lzma.cc
 
     ${DOBBY_DIR}/source/Backend/UserMode/PlatformUtil/Linux/ProcessRuntimeUtility.cc
     )
