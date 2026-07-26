@@ -27,9 +27,6 @@ public:
 	struct Method;
 	class UnityType;
 
-	static Assembly* NullAssembly();
-	static Class* NullClass();
-
 	struct Assembly final {
 		void* address;
 		std::string name;
