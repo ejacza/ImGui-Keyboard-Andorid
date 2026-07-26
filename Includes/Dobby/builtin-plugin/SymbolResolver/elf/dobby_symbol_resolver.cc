@@ -375,18 +375,22 @@ static void *resolve_in_module(const RuntimeModule &module, const char *symbol) 
 PUBLIC void *DobbySymbolResolver(const char *image_name, const char *symbol_name_pattern) {
   if (NULL == symbol_name_pattern) return NULL;
 
-  // 1. fast path: dlsym (covers exported symbols)
+  // When image_name is specified, resolve ONLY in matching module(s) — do NOT
+  // dlsym first, because dlsym(RTLD_DEFAULT) may return the symbol from a
+  // different module than the one requested. This matches xdl_sym() semantics,
+  // which resolves only within the opened handle.
+  if (image_name) {
+    RuntimeModule module = ProcessRuntimeUtility::GetProcessModule(image_name);
+    void *result = resolve_in_module(module, symbol_name_pattern);
+    if (result) return result;
+    return NULL;
+  }
+
+  // image_name == NULL: dlsym fast path (exported symbols), then search all
+  // loaded modules for hidden / non-exported symbols.
   void *result = dlsym(RTLD_DEFAULT, symbol_name_pattern);
   if (result) return result;
 
-  // 2. resolve from specific module if image_name is given
-  if (image_name) {
-    RuntimeModule module = ProcessRuntimeUtility::GetProcessModule(image_name);
-    result = resolve_in_module(module, symbol_name_pattern);
-    if (result) return result;
-  }
-
-  // 3. fall back: search all loaded modules
   auto ProcessModuleMap = ProcessRuntimeUtility::GetProcessModuleMap();
   for (auto module : ProcessModuleMap) {
     result = resolve_in_module(module, symbol_name_pattern);
