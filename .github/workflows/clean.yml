@@ -1,0 +1,23 @@
+name: Clean Workflow History
+
+on:
+  workflow_dispatch:
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete all workflow runs
+        run: |
+          REPO="${{ github.repository }}"
+          echo "Cleaning workflow runs for $REPO"
+          for run_id in $(gh run list --repo "$REPO" --limit 200 --json databaseId --jq '.[].databaseId'); do
+            echo "Deleting run $run_id..."
+            gh run delete "$run_id" --repo "$REPO" --yes 2>/dev/null || true
+          done
+          echo "Done. Remaining runs:"
+          gh run list --repo "$REPO" --limit 5 2>/dev/null || echo "None"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
