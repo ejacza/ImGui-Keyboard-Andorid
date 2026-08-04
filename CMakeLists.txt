@@ -15,6 +15,7 @@ set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ImGui)
 set(IMGUI_BACKENDS_DIR ${IMGUI_DIR}/backends)
 set(IMGUI_FONTS_DIR ${IMGUI_DIR}/fonts)
 set(DOBBY_DIR ${INCLUDES_DIR}/Dobby)
+set(FRIDA_DIR ${INCLUDES_DIR}/Frida)
 
 include_directories(
     ${CMAKE_CURRENT_DIR}
@@ -27,6 +28,8 @@ include_directories(
     ${INCLUDES_DIR}/KittyMemory
     ${INCLUDES_DIR}/xdl/include
     ${INCLUDES_DIR}/il2cpp
+    ${FRIDA_DIR}/${ANDROID_ABI}
+    ${FRIDA_DIR}/gumpp
 )
 
 add_library(imgui STATIC
@@ -53,6 +56,15 @@ add_library(kitty STATIC
     ${INCLUDES_DIR}/KittyMemory/MemoryPatch.cpp
 )
 
+add_library(gumpp STATIC
+    ${FRIDA_DIR}/gumpp/backtracer.cpp
+    ${FRIDA_DIR}/gumpp/interceptor.cpp
+    ${FRIDA_DIR}/gumpp/invocationlistener.cpp
+    ${FRIDA_DIR}/gumpp/returnaddress.cpp
+    ${FRIDA_DIR}/gumpp/runtime.cpp
+    ${FRIDA_DIR}/gumpp/symbolutil.cpp
+)
+
 add_library(Demo SHARED
     native-lib.cpp
     ${INCLUDES_DIR}/il2cpp/il2cpp_dump.cpp
@@ -69,4 +81,6 @@ target_link_libraries(Demo
     kitty
     xdl
     asmjit
+    gumpp
+    ${FRIDA_DIR}/${ANDROID_ABI}/frida-gum.a
 )
