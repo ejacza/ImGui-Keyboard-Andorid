@@ -2,6 +2,7 @@
 
 static char inputText[256] = "";
 static char inputMulti[1024] = "";
+static Gum::RefPtr<Gum::Interceptor> gumppLinkAnchor;
 
 void DrawMenu() {
 
@@ -12,6 +13,13 @@ void DrawMenu() {
 
             ImGui::InputText("Input", inputText, sizeof(inputText));
             ImGui::InputTextMultiline("Multi", inputMulti, sizeof(inputMulti), ImVec2(-1, 100));
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Scanner")) {
+
+            ScanEngine::DrawUI();
 
             ImGui::EndTabItem();
         }
@@ -106,6 +114,8 @@ void *MainThread(void *) {
 
 __attribute__((constructor))
 void libmain() {
+    gum_init_embedded();
+    gumppLinkAnchor = Gum::RefPtr<Gum::Interceptor>(Gum::Interceptor_obtain());
     pthread_t thread1, thread2;
     pthread_create(&thread1, nullptr, input_thread, nullptr);
     pthread_create(&thread2, nullptr, MainThread, nullptr);
