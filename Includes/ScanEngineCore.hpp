@@ -256,6 +256,7 @@ inline void *RunSearch(void *argument)
             for (const MapEntry &entry : maps)
             {
                 if (!RegionSelected(task->region, entry.region) || (entry.protection & GUM_PAGE_READ) == 0) continue;
+                if (entry.end - entry.start < task->value.size) continue;
                 if (output.size() >= ResultLimit) break;
                 GumMemoryRange range{entry.start, static_cast<gsize>(entry.end - entry.start)};
                 MatchContext context{&output, task->type, entry.region, ResultLimit};
