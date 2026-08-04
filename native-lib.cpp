@@ -10,6 +10,9 @@ static char scannerEditValue[96] = "";
 static int scannerSelectedResult = -1;
 static GumAddress scannerSelectedAddress = 0;
 static bool scannerOpenEdit = false;
+static size_t scannerPage = 0;
+static size_t scannerGeneration = 0;
+static constexpr size_t scannerPageSize = 50;
 
 static void DrawScannerRegion()
 {
@@ -67,7 +70,34 @@ static void DrawScannerType()
 
 static void DrawScannerResults()
 {
-    ScanEngine::Snapshot snapshot = ScanEngine::GetSnapshot();
+    size_t resultCount = ScanEngine::GetResultCount();
+    size_t totalPages = resultCount == 0 ? 1 : (resultCount + scannerPageSize - 1) / scannerPageSize;
+    ScanEngine::Snapshot generationSnapshot = ScanEngine::GetSnapshot(0, 0);
+    if (scannerGeneration != generationSnapshot.generation)
+    {
+        scannerGeneration = generationSnapshot.generation;
+        scannerPage = 0;
+    }
+    if (scannerPage >= totalPages) scannerPage = totalPages - 1;
+    ImGui::BeginDisabled(scannerPage == 0);
+    if (ImGui::ArrowButton("##FirstPage", ImGuiDir_Left)) scannerPage = 0;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("First page");
+    ImGui::SameLine();
+    if (ImGui::ArrowButton("##PreviousPage", ImGuiDir_Left)) --scannerPage;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Previous page");
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::Text("Page %zu / %zu", scannerPage + 1, totalPages);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(scannerPage + 1 >= totalPages);
+    if (ImGui::ArrowButton("##NextPage", ImGuiDir_Right)) ++scannerPage;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Next page");
+    ImGui::SameLine();
+    if (ImGui::ArrowButton("##LastPage", ImGuiDir_Right)) scannerPage = totalPages - 1;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Last page");
+    ImGui::EndDisabled();
+    size_t pageOffset = scannerPage * scannerPageSize;
+    ScanEngine::Snapshot snapshot = ScanEngine::GetSnapshot(pageOffset, scannerPageSize);
     if (ImGui::BeginTable("ScanResults", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0.0f, 420.0f)))
     {
         ImGui::TableSetupScrollFreeze(0, 1);
@@ -75,31 +105,27 @@ static void DrawScannerResults()
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 130.0f);
         ImGui::TableHeadersRow();
-        ImGuiListClipper clipper;
-        clipper.Begin(static_cast<int>(snapshot.results.size()));
-        while (clipper.Step())
+        for (size_t row = 0; row < snapshot.results.size(); ++row)
         {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+            size_t globalIndex = pageOffset + row;
+            ScanEngine::Result result = snapshot.results[row];
+            ScanEngine::RefreshResult(globalIndex, result);
+            std::string value = ScanEngine::FormatValue(result.type, result.bytes.data());
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("0x%llX", static_cast<unsigned long long>(result.address));
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(value.c_str());
+            ImGui::TableSetColumnIndex(2);
+            ImGui::PushID(static_cast<int>(globalIndex));
+            if (ImGui::Button("Edit"))
             {
-                ScanEngine::Result result = snapshot.results[static_cast<size_t>(row)];
-                ScanEngine::RefreshResult(static_cast<size_t>(row), result);
-                std::string value = ScanEngine::FormatValue(result.type, result.bytes.data());
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("0x%llX", static_cast<unsigned long long>(result.address));
-                ImGui::TableSetColumnIndex(1);
-                ImGui::TextUnformatted(value.c_str());
-                ImGui::TableSetColumnIndex(2);
-                ImGui::PushID(static_cast<int>(row));
-                if (ImGui::Button("Edit"))
-                {
-                    scannerSelectedResult = row;
-                    scannerSelectedAddress = result.address;
-                    std::snprintf(scannerEditValue, sizeof(scannerEditValue), "%s", value.c_str());
-                    scannerOpenEdit = true;
-                }
-                ImGui::PopID();
+                scannerSelectedResult = static_cast<int>(globalIndex);
+                scannerSelectedAddress = result.address;
+                std::snprintf(scannerEditValue, sizeof(scannerEditValue), "%s", value.c_str());
+                scannerOpenEdit = true;
             }
+            ImGui::PopID();
         }
         ImGui::EndTable();
     }
@@ -146,7 +172,6 @@ static void DrawScanner()
     ImGui::Text("Status: %s", status.c_str());
     ImGui::Text("Results: %zu", count);
     if (busy) ImGui::Text("Processed: %zu  Unreadable: %zu", ScanEngine::GetProcessed(), ScanEngine::GetUnreadable());
-    if (count > ScanEngine::DisplayLimit) ImGui::Text("Showing first %zu results", ScanEngine::DisplayLimit);
     DrawScannerResults();
 }
 

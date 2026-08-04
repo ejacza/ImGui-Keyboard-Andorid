@@ -805,15 +805,21 @@ inline void Clear()
     Log(ANDROID_LOG_INFO, "Results cleared");
 }
 
-inline Snapshot GetSnapshot(size_t limit = DisplayLimit)
+inline Snapshot GetSnapshot(size_t offset, size_t limit)
 {
     State &state = GetState();
     Snapshot snapshot;
     std::lock_guard<std::mutex> lock(state.resultsMutex);
     snapshot.generation = state.generation.load(std::memory_order_relaxed);
-    size_t count = std::min(limit, state.results.size());
-    snapshot.results.assign(state.results.begin(), state.results.begin() + count);
+    if (offset >= state.results.size() || limit == 0) return snapshot;
+    size_t count = std::min(limit, state.results.size() - offset);
+    snapshot.results.assign(state.results.begin() + offset, state.results.begin() + offset + count);
     return snapshot;
+}
+
+inline Snapshot GetSnapshot(size_t limit = DisplayLimit)
+{
+    return GetSnapshot(0, limit);
 }
 
 inline size_t GetResultCount()
